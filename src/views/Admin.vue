@@ -445,85 +445,138 @@ export default {
   ============================================================ */
  methods: {
   async startScanForOrder(order) {
-    this.orderToFulfill = order;
-    this.isProductScanned = false;
-    this.scanStatusMessage = "Initializing scanner...";
-    this.showScanModal = true;
+  this.orderToFulfill = order;
+  this.isProductScanned = false;
+  this.scanStatusMessage = "Initializing camera...";
+  this.showScanModal = true;
 
-    await nextTick(() => this.initCombinedScanner());
-  },
+  await nextTick(() => this.initScanner());
+},
 
-  async initCombinedScanner() {
-    try {
-      const container = document.querySelector("#scanner-container");
-      if (!container) return;
+async initScanner() {
+  const container = document.querySelector("#scanner-container");
+  if (!container) return;
 
-      // --- Try Quagga (barcode) ---
-      Quagga.init({
-        inputStream: {
-          name: "Live",
-          type: "LiveStream",
-          target: container,
-          constraints: { facingMode: "environment" }
+  // Stop any previous Quagga sessions
+  if (Quagga.initialized) {
+    Quagga.stop();
+    Quagga.offDetected();
+  }
+
+  try {
+    Quagga.init({
+      inputStream: {
+        name: "Live",
+        type: "LiveStream",
+        target: container,
+        constraints: {
+          facingMode: "environment",
+          width: 640,
+          height: 480,
         },
-        decoder: { readers: ["code_128_reader", "ean_reader", "upc_reader", "code_39_reader"] }
-      }, (err) => {
-        if (!err) {
-          Quagga.start();
-          this.scanStatusMessage = "Camera ready — scanning for barcode/QR...";
-          Quagga.onDetected(this.onBarcodeDetected);
-        } else {
-          this.initQRScanner(); // fallback to QR scanner
-        }
-      });
+      },
+      decoder: {
+        readers: [
+          "code_128_reader",
+          "ean_reader",
+          "upc_reader",
+          "code_39_reader",
+        ],
+      },
+      locate: true,
+    }, (err) => {
+      if (err) {
+        console.error("Quagga init error:", err);
+        this.scanStatusMessage = "⚠️ Failed to access camera. Trying QR scanner...";
+        this.initQRScanner(); // fallback
+        return;
+      }
 
-    } catch (error) {
-      console.error("Combined scanner init failed:", error);
-      this.initQRScanner(); // fallback
-    }
-  },
+      Quagga.initialized = true;
+      Quagga.start();
+      this.scanStatusMessage = "📷 Camera ready. Center barcode and press 'Capture Barcode'.";
+    });
+  } catch (error) {
+    console.error("Camera error:", error);
+    this.initQRScanner(); // fallback
+  }
+},
 
-  async initQRScanner() {
-    try {
-      const codeReader = new BrowserMultiFormatReader();
-      const videoElement = document.getElementById("scanner-video");
-      const devices = await BrowserMultiFormatReader.listVideoInputDevices();
-      const deviceId = devices[0]?.deviceId;
+captureBarcode() {
+  this.scanStatusMessage = "🔎 Scanning frame for barcode...";
 
-      codeReader.decodeFromVideoDevice(deviceId, videoElement, (result, err) => {
-        if (result) {
-          this.handleBarcodeScanned(result.getText());
-          codeReader.reset();
-        }
-      });
-
-      this.scanStatusMessage = "QR Scanner ready. Point at QR or barcode.";
-    } catch (error) {
-      this.scanStatusMessage = "Camera failed to start.";
-      console.error(error);
-    }
-  },
-
-  onBarcodeDetected(result) {
-    if (result?.codeResult?.code) {
-      this.handleBarcodeScanned(result.codeResult.code);
+  Quagga.onDetected((data) => {
+    if (data && data.codeResult && data.codeResult.code) {
+      const scannedCode = data.codeResult.code.trim();
+      console.log("Detected:", scannedCode);
+      this.handleBarcodeScanned(scannedCode);
+      Quagga.offDetected();
       Quagga.stop();
     }
-  },
+  });
 
-  handleBarcodeScanned(scannedCode) {
-    if (!this.orderToFulfill) return;
-
-    console.log("Scanned code:", scannedCode);
-    if (scannedCode.includes(this.orderToFulfill.product_name.slice(0, 4).toUpperCase())) {
-      this.isProductScanned = true;
-      this.scanStatusMessage = `✅ Matched ${this.orderToFulfill.product_name}`;
-      this.updateStockOut(); // auto deduct
-      this.showScanModal = false;
-    } else {
-      this.scanStatusMessage = "⚠️ Mismatch. Try again.";
+  // If barcode not detected within 3s, fallback
+  setTimeout(() => {
+    if (!this.isProductScanned) {
+      this.scanStatusMessage = "⚠️ No barcode detected. Try again or scan QR.";
     }
-  },
+  }, 3000);
+},
+
+async initQRScanner() {
+  try {
+    const codeReader = new BrowserMultiFormatReader();
+    const videoElement = document.getElementById("scanner-video");
+    const devices = await BrowserMultiFormatReader.listVideoInputDevices();
+    const deviceId = devices[0]?.deviceId;
+
+    codeReader.decodeFromVideoDevice(deviceId, videoElement, (result, err) => {
+      if (result) {
+        this.handleBarcodeScanned(result.getText());
+        codeReader.reset();
+      }
+    });
+
+    this.scanStatusMessage = "📱 QR scanner ready — point the camera to the QR code.";
+  } catch (error) {
+    console.error("QR init error:", error);
+    this.scanStatusMessage = "🚫 QR scanner initialization failed.";
+  }
+},
+
+handleBarcodeScanned(scannedCode) {
+  if (!this.orderToFulfill) return;
+
+  console.log("📦 Scanned code:", scannedCode);
+
+  // Match the first 4 letters of product name or barcode pattern
+  const productPrefix = this.orderToFulfill.product_name.slice(0, 4).toUpperCase();
+  if (scannedCode.includes(productPrefix)) {
+    this.isProductScanned = true;
+    this.scanStatusMessage = `✅ Matched ${this.orderToFulfill.product_name}`;
+    this.showScanModal = false;
+    this.updateStockOut(); // auto deduct
+  } else {
+    this.scanStatusMessage = "❌ Mismatch. Please scan the correct label.";
+  }
+},
+
+stopScanner() {
+  try {
+    Quagga.offDetected();
+    Quagga.stop();
+    Quagga.initialized = false;
+  } catch (e) {
+    console.warn("Scanner stop failed:", e);
+  }
+},
+
+closeScanModal() {
+  this.stopScanner();
+  this.showScanModal = false;
+  this.orderToFulfill = null;
+  this.isProductScanned = false;
+},
 
     /* ============================
        --- USER PROFILE METHODS ---
