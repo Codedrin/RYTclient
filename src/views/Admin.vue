@@ -483,10 +483,16 @@ async initScanner() {
           height: { ideal: 720 },
         },
       },
-      locator: {
-        patchSize: "large", // scan wider
-        halfSample: false,   // use full frame
-      },
+        locator: {
+          patchSize: "large",
+          halfSample: false,
+          area: {
+            top: "40%",    // start scanning roughly 40% from top
+            right: "10%",  // leave some margin
+            left: "10%",
+            bottom: "60%", // ends around 60% from top → makes a horizontal strip
+          },
+        },
       numOfWorkers: navigator.hardwareConcurrency || 4,
       frequency: 5,
       decoder: {
@@ -1018,14 +1024,15 @@ closeScanModal() {
 #scanner-container::after {
   content: '';
   position: absolute;
-  top: 10%;
+  top: 40%;
   left: 10%;
   right: 10%;
-  bottom: 10%;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
-  border: 2px solid white;
-  border-radius: 8px;
+  bottom: 40%;
+  border: 3px solid #00ff99;
+  border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
 }
+
 
 /* Custom Modal Styles (for Logout and Profile) */
 .custom-modal-overlay {
