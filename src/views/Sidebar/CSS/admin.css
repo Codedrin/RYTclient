@@ -1,0 +1,218 @@
+
+
+@import url('https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css');
+
+/* UPDATED Styles for Scanner (Crucial for video feed) */
+#scanner-container {
+  position: relative;
+  width: 100%;
+  height: 320px;
+  overflow: hidden;
+  background-color: #000; /* Add a black background */
+}
+#scanner-video {
+  /* Let the video determine its own size to maintain aspect ratio */
+  max-width: 100%;
+  max-height: 100%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%); /* Center the video */
+}
+#scanner-container::after {
+  content: '';
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  right: 10%;
+  bottom: 10%;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+  border: 2px solid white;
+  border-radius: 8px;
+}
+
+/* Custom Modal Styles (for Logout and Profile) */
+.custom-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999; 
+  transition: opacity 0.3s ease;
+}
+
+.custom-modal-card {
+  max-width: 450px;
+  width: 90%;
+  border-radius: 1rem;
+  overflow: hidden;
+  animation: scaleIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.custom-modal-card .card-header {
+  border-bottom: none;
+  font-weight: bold;
+  padding: 1.5rem;
+}
+
+.custom-modal-card .card-body {
+  padding: 2rem;
+}
+
+/* Existing styles for the rest of the dashboard components */
+.sidebar {
+  width: 250px;
+  transition: all 0.3s ease-in-out;
+  overflow-x: hidden;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  z-index: 1050;
+  flex-shrink: 0;
+}
+
+.sidebar.collapsed {
+  width: 70px;
+}
+
+.sidebar.collapsed .nav-link {
+  justify-content: center;
+}
+
+.sidebar.collapsed .nav-link span {
+  display: none;
+}
+
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1040;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.nav-item.active > .nav-link {
+  background-color: #0d6efd;
+  font-weight: bold;
+}
+
+@media (max-width: 991.98px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    transform: translateX(-100%);
+    z-index: 1050;
+    height: 100%;
+  }
+
+  .sidebar.sidebar-visible {
+    transform: translateX(0);
+  }
+
+  .sidebar.collapsed {
+    width: 250px;
+  }
+
+  .sidebar.collapsed .nav-link span {
+    display: inline;
+  }
+
+  .sidebar.collapsed .nav-link {
+    justify-content: flex-start;
+  }
+}
+
+ul.ps-4 li a {
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+/* Updated dropdown z-index for better layering */
+.nav-item.dropdown {
+    position: relative;
+}
+.dropdown-menu {
+  z-index: 2000;
+  display: block;
+  position: absolute;
+  top: 100%;
+  left: auto;
+  right: 0;
+  min-width: 10rem;
+}
+
+.card {
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.card-header {
+  border-bottom: 1px solid rgba(0,0,0,.125);
+  padding: 1rem 1.5rem;
+  font-size: 1.1rem;
+}
+
+.btn-success, .btn-danger {
+  padding: 0.75rem 1.5rem;
+  font-weight: bold;
+}
+
+.form-control {
+  border-radius: 0.5rem;
+}
+
+.table thead th {
+  background-color: #f8f9fa;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.table-hover tbody tr:hover {
+  background-color: #f2f2f2;
+}
+
+.list-group-item {
+  border: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* FIX for Barcode Overlapping */
+.barcode-label-area svg {
+  /* Ensure SVG takes up vertical space */
+  height: 60px; /* Give it a definite height */
+  width: 100%; /* Ensure it spans the container */
+  display: block; 
+  margin: 0 auto;
+}
+
+.barcode-label-area {
+  /* Increase padding/margin to separate text blocks */
+  padding: 10px 5px !important;
+}
+
+.barcode-label-area p {
+    /* Set explicit margins for separation */
+    margin: 5px 0 !important; 
+    line-height: 1.2;
+}

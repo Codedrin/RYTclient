@@ -351,9 +351,9 @@
 import { supabase } from '../server/supabase';
 import { nextTick } from 'vue';
 import JsBarcode from 'jsbarcode';
-import Quagga from '@ericblade/quagga2'; // Barcode scanning library
 import { useRouter, onBeforeRouteLeave } from 'vue-router';
-
+import { BrowserMultiFormatReader } from "@zxing/browser";
+import Quagga from "@ericblade/quagga2";
 const router = useRouter();
 
 export default {
@@ -443,72 +443,87 @@ export default {
   /* ============================================================
      METHODS
   ============================================================ */
-  methods: {
+ methods: {
+  async startScanForOrder(order) {
+    this.orderToFulfill = order;
+    this.isProductScanned = false;
+    this.scanStatusMessage = "Initializing scanner...";
+    this.showScanModal = true;
 
-    /* ============================
-       --- QUAGGA BARCODE SCANNER ---
-       ============================ */
-    initQuagga() {
-      if (typeof Quagga === 'undefined' || !Quagga.init) {
-        this.scanStatusMessage = 'Error: Barcode scanner library not loaded.';
-        return;
-      }
+    await nextTick(() => this.initCombinedScanner());
+  },
 
+  async initCombinedScanner() {
+    try {
+      const container = document.querySelector("#scanner-container");
+      if (!container) return;
+
+      // --- Try Quagga (barcode) ---
       Quagga.init({
         inputStream: {
-          name: 'Live',
-          type: 'LiveStream',
-          target: document.querySelector('#scanner-container'),
-          constraints: { width: 600, height: 320, facingMode: 'environment' }
+          name: "Live",
+          type: "LiveStream",
+          target: container,
+          constraints: { facingMode: "environment" }
         },
-        decoder: { readers: ['code_128_reader', 'ean_reader', 'upc_reader', 'code_39_reader'] },
-        locator: { patchSize: 'medium', halfSample: true },
-        locate: true
+        decoder: { readers: ["code_128_reader", "ean_reader", "upc_reader", "code_39_reader"] }
       }, (err) => {
-        if (err) {
-          console.error('Quagga initialization error:', err);
-          this.scanStatusMessage = 'ERROR: Could not access camera.';
-          return;
+        if (!err) {
+          Quagga.start();
+          this.scanStatusMessage = "Camera ready — scanning for barcode/QR...";
+          Quagga.onDetected(this.onBarcodeDetected);
+        } else {
+          this.initQRScanner(); // fallback to QR scanner
         }
-        Quagga.start();
-        this.scanStatusMessage = 'Camera ready. Press "Capture Barcode" when centered.';
       });
-    },
 
-    stopQuagga() {
-      if (Quagga && Quagga.stop) Quagga.stop();
-    },
+    } catch (error) {
+      console.error("Combined scanner init failed:", error);
+      this.initQRScanner(); // fallback
+    }
+  },
 
-    startScanForOrder(order) {
-      this.orderToFulfill = order;
-      this.isProductScanned = false;
-      this.scanStatusMessage = 'Awaiting camera initialization...';
-      this.showScanModal = true;
+  async initQRScanner() {
+    try {
+      const codeReader = new BrowserMultiFormatReader();
+      const videoElement = document.getElementById("scanner-video");
+      const devices = await BrowserMultiFormatReader.listVideoInputDevices();
+      const deviceId = devices[0]?.deviceId;
 
-      nextTick(() => this.initQuagga());
-    },
+      codeReader.decodeFromVideoDevice(deviceId, videoElement, (result, err) => {
+        if (result) {
+          this.handleBarcodeScanned(result.getText());
+          codeReader.reset();
+        }
+      });
 
-    handleBarcodeScanned(scannedCode) {
-      if (!this.orderToFulfill) return;
+      this.scanStatusMessage = "QR Scanner ready. Point at QR or barcode.";
+    } catch (error) {
+      this.scanStatusMessage = "Camera failed to start.";
+      console.error(error);
+    }
+  },
 
-      if (scannedCode === this.orderToFulfill.product_id) {
-        this.isProductScanned = true;
-        this.scanStatusMessage = `✅ Barcode matched! Product ID: ${scannedCode}. Ready to confirm.`;
-      } else {
-        this.isProductScanned = false;
-        this.scanStatusMessage = '⚠️ Barcode mismatch. Please capture the correct item.';
-      }
+  onBarcodeDetected(result) {
+    if (result?.codeResult?.code) {
+      this.handleBarcodeScanned(result.codeResult.code);
+      Quagga.stop();
+    }
+  },
 
-      this.stopQuagga();
+  handleBarcodeScanned(scannedCode) {
+    if (!this.orderToFulfill) return;
+
+    console.log("Scanned code:", scannedCode);
+    if (scannedCode.includes(this.orderToFulfill.product_name.slice(0, 4).toUpperCase())) {
+      this.isProductScanned = true;
+      this.scanStatusMessage = `✅ Matched ${this.orderToFulfill.product_name}`;
+      this.updateStockOut(); // auto deduct
       this.showScanModal = false;
-    },
-
-    closeScanModal() {
-      this.stopQuagga();
-      this.showScanModal = false;
-      this.orderToFulfill = null;
-      this.isProductScanned = false;
-    },
+    } else {
+      this.scanStatusMessage = "⚠️ Mismatch. Try again.";
+    }
+  },
 
     /* ============================
        --- USER PROFILE METHODS ---
