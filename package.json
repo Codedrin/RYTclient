@@ -17,6 +17,7 @@
     "@zxing/browser": "^0.1.5",
     "bootstrap": "^5.3.8",
     "chart.js": "^4.5.0",
+    "html5-qrcode": "^2.3.8",
     "jsbarcode": "^3.12.1",
     "vue": "^3.5.22",
     "vue-router": "^4.5.1"
