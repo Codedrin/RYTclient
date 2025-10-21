@@ -444,7 +444,10 @@ export default {
      METHODS
   ============================================================ */
  methods: {
-  async startScanForOrder(order) {
+/* ============================
+   BARCODE + QR SCANNER SECTION
+   ============================ */
+async startScanForOrder(order) {
   this.orderToFulfill = order;
   this.isProductScanned = false;
   this.scanStatusMessage = "Initializing camera...";
@@ -457,13 +460,18 @@ async initScanner() {
   const container = document.querySelector("#scanner-container");
   if (!container) return;
 
-  // Stop any previous Quagga sessions
-  if (Quagga.initialized) {
+  // Stop any previous scanner session
+  try {
     Quagga.stop();
     Quagga.offDetected();
+    Quagga.offProcessed();
+  } catch (e) {
+    console.warn("No previous scanner session");
   }
 
   try {
+    await new Promise((resolve) => setTimeout(resolve, 700)); // allow autofocus
+
     Quagga.init({
       inputStream: {
         name: "Live",
@@ -471,57 +479,149 @@ async initScanner() {
         target: container,
         constraints: {
           facingMode: "environment",
-          width: 640,
-          height: 480,
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
         },
       },
+      locator: {
+        patchSize: "large", // scan wider
+        halfSample: false,   // use full frame
+      },
+      numOfWorkers: navigator.hardwareConcurrency || 4,
+      frequency: 5,
       decoder: {
         readers: [
-          "code_128_reader",
+          "code_128_reader", // your printed labels use this format
           "ean_reader",
-          "upc_reader",
           "code_39_reader",
+          "upc_reader",
         ],
       },
       locate: true,
     }, (err) => {
       if (err) {
         console.error("Quagga init error:", err);
-        this.scanStatusMessage = "⚠️ Failed to access camera. Trying QR scanner...";
-        this.initQRScanner(); // fallback
+        this.scanStatusMessage = "⚠️ Camera not accessible. Trying QR mode...";
+        this.initQRScanner();
         return;
       }
 
-      Quagga.initialized = true;
       Quagga.start();
-      this.scanStatusMessage = "📷 Camera ready. Center barcode and press 'Capture Barcode'.";
+      this.scanStatusMessage = "📷 Camera ready. Center barcode inside frame.";
+      this.setupDetectionHandlers();
     });
+
   } catch (error) {
     console.error("Camera error:", error);
+    this.scanStatusMessage = "🚫 Camera initialization failed.";
     this.initQRScanner(); // fallback
   }
 },
 
-captureBarcode() {
-  this.scanStatusMessage = "🔎 Scanning frame for barcode...";
+setupDetectionHandlers() {
+  // Show visual boxes
+  Quagga.onProcessed((result) => {
+    const ctx = Quagga.canvas.ctx.overlay;
+    const canvas = Quagga.canvas.dom.overlay;
+    if (!ctx || !canvas) return;
 
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (result && result.boxes) {
+      result.boxes
+        .filter((box) => box !== result.box)
+        .forEach((box) =>
+          Quagga.ImageDebug.drawPath(box, { x: 0, y: 1 }, ctx, { color: "lime", lineWidth: 2 })
+        );
+    }
+
+    if (result && result.box) {
+      Quagga.ImageDebug.drawPath(result.box, { x: 0, y: 1 }, ctx, { color: "blue", lineWidth: 2 });
+    }
+
+    if (result && result.codeResult && result.codeResult.code) {
+      Quagga.ImageDebug.drawPath(result.line, { x: "x", y: "y" }, ctx, { color: "red", lineWidth: 3 });
+    }
+  });
+
+  // Auto-detect barcode (you can keep this + capture button)
   Quagga.onDetected((data) => {
     if (data && data.codeResult && data.codeResult.code) {
-      const scannedCode = data.codeResult.code.trim();
-      console.log("Detected:", scannedCode);
-      this.handleBarcodeScanned(scannedCode);
+      const scanned = data.codeResult.code.trim();
+      console.log("✅ Auto Detected barcode:", scanned);
+      this.handleBarcodeScanned(scanned);
+
       Quagga.offDetected();
       Quagga.stop();
     }
   });
-
-  // If barcode not detected within 3s, fallback
-  setTimeout(() => {
-    if (!this.isProductScanned) {
-      this.scanStatusMessage = "⚠️ No barcode detected. Try again or scan QR.";
-    }
-  }, 3000);
 },
+
+captureBarcode() {
+  try {
+    const video = document.querySelector("#scanner-video");
+
+    if (!video || video.readyState < 2) {
+      this.scanStatusMessage = "⚠️ Camera not ready. Please wait a few seconds.";
+      return;
+    }
+
+    // Capture still frame
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // 🧠 Improve contrast & crop to center
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imgData.data;
+
+    // Convert to grayscale & increase contrast
+    for (let i = 0; i < data.length; i += 4) {
+      const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      const highContrast = avg < 128 ? 0 : 255;
+      data[i] = data[i + 1] = data[i + 2] = highContrast;
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    // Crop center area (barcode is usually in the middle)
+    const cropHeight = canvas.height * 0.4;
+    const cropY = canvas.height * 0.3;
+    const cropped = ctx.getImageData(0, cropY, canvas.width, cropHeight);
+
+    const cropCanvas = document.createElement("canvas");
+    cropCanvas.width = canvas.width;
+    cropCanvas.height = cropHeight;
+    cropCanvas.getContext("2d").putImageData(cropped, 0, 0);
+
+    const imageData = cropCanvas.toDataURL("image/png");
+
+    // Decode captured image
+    Quagga.decodeSingle(
+      {
+        src: imageData,
+        numOfWorkers: 0,
+        decoder: {
+          readers: ["code_128_reader", "ean_reader", "code_39_reader"],
+        },
+        locate: true,
+      },
+      (result) => {
+        if (result && result.codeResult) {
+          console.log("📷 Captured scan:", result.codeResult.code);
+          this.handleBarcodeScanned(result.codeResult.code);
+        } else {
+          this.scanStatusMessage = "❌ No barcode detected. Try adjusting distance or lighting.";
+        }
+      }
+    );
+  } catch (err) {
+    console.error("Capture error:", err);
+    this.scanStatusMessage = "⚠️ Failed to capture frame.";
+  }
+},
+
 
 async initQRScanner() {
   try {
@@ -549,7 +649,6 @@ handleBarcodeScanned(scannedCode) {
 
   console.log("📦 Scanned code:", scannedCode);
 
-  // Match the first 4 letters of product name or barcode pattern
   const productPrefix = this.orderToFulfill.product_name.slice(0, 4).toUpperCase();
   if (scannedCode.includes(productPrefix)) {
     this.isProductScanned = true;
