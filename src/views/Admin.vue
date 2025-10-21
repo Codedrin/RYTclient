@@ -460,7 +460,7 @@ async initScanner() {
   const container = document.querySelector("#scanner-container");
   if (!container) return;
 
-  // Stop any previous scanner session
+  // Stop any old sessions
   try {
     Quagga.stop();
     Quagga.offDetected();
@@ -470,7 +470,7 @@ async initScanner() {
   }
 
   try {
-    await new Promise((resolve) => setTimeout(resolve, 700)); // allow autofocus
+    await new Promise((resolve) => setTimeout(resolve, 700)); // autofocus delay
 
     Quagga.init({
       inputStream: {
@@ -479,29 +479,33 @@ async initScanner() {
         target: container,
         constraints: {
           facingMode: "environment",
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          focusMode: "continuous",
+          exposureMode: "continuous",
         },
       },
-        locator: {
-          patchSize: "large",
-          halfSample: false,
-          area: {
-            top: "40%",    // start scanning roughly 40% from top
-            right: "10%",  // leave some margin
-            left: "10%",
-            bottom: "60%", // ends around 60% from top → makes a horizontal strip
-          },
+      locator: {
+        patchSize: "large",
+        halfSample: false,
+        area: {
+          top: "40%",     // rectangular detection zone
+          right: "10%",
+          left: "10%",
+          bottom: "60%",
         },
+      },
       numOfWorkers: navigator.hardwareConcurrency || 4,
       frequency: 5,
       decoder: {
         readers: [
-          "code_128_reader", // your printed labels use this format
+          "code_128_reader",
           "ean_reader",
+          "ean_8_reader",
           "code_39_reader",
           "upc_reader",
         ],
+        multiple: false,
       },
       locate: true,
     }, (err) => {
@@ -513,10 +517,9 @@ async initScanner() {
       }
 
       Quagga.start();
-      this.scanStatusMessage = "📷 Camera ready. Center barcode inside frame.";
+      this.scanStatusMessage = "📷 Auto-scanning... hold the barcode inside the green rectangle.";
       this.setupDetectionHandlers();
     });
-
   } catch (error) {
     console.error("Camera error:", error);
     this.scanStatusMessage = "🚫 Camera initialization failed.";
@@ -525,7 +528,6 @@ async initScanner() {
 },
 
 setupDetectionHandlers() {
-  // Show visual boxes
   Quagga.onProcessed((result) => {
     const ctx = Quagga.canvas.ctx.overlay;
     const canvas = Quagga.canvas.dom.overlay;
@@ -537,28 +539,35 @@ setupDetectionHandlers() {
       result.boxes
         .filter((box) => box !== result.box)
         .forEach((box) =>
-          Quagga.ImageDebug.drawPath(box, { x: 0, y: 1 }, ctx, { color: "lime", lineWidth: 2 })
+          Quagga.ImageDebug.drawPath(box, { x: 0, y: 1 }, ctx, {
+            color: "lime",
+            lineWidth: 2,
+          })
         );
     }
 
-    if (result && result.box) {
-      Quagga.ImageDebug.drawPath(result.box, { x: 0, y: 1 }, ctx, { color: "blue", lineWidth: 2 });
-    }
-
     if (result && result.codeResult && result.codeResult.code) {
-      Quagga.ImageDebug.drawPath(result.line, { x: "x", y: "y" }, ctx, { color: "red", lineWidth: 3 });
+      Quagga.ImageDebug.drawPath(result.line, { x: "x", y: "y" }, ctx, {
+        color: "red",
+        lineWidth: 3,
+      });
     }
   });
 
-  // Auto-detect barcode (you can keep this + capture button)
+  // 🔥 Continuous auto-detection (no button press)
   Quagga.onDetected((data) => {
     if (data && data.codeResult && data.codeResult.code) {
       const scanned = data.codeResult.code.trim();
-      console.log("✅ Auto Detected barcode:", scanned);
-      this.handleBarcodeScanned(scanned);
+      console.log("✅ Auto detected:", scanned);
 
-      Quagga.offDetected();
-      Quagga.stop();
+      // Optional: filter out false positives
+      if (scanned.length > 6) {
+        this.handleBarcodeScanned(scanned);
+
+        // stop after a successful detection
+        Quagga.offDetected();
+        setTimeout(() => Quagga.stop(), 500);
+      }
     }
   });
 },
