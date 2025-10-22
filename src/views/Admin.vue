@@ -519,8 +519,21 @@ stopQuagga() {
           this.scanStatusMessage = 'No barcode captured.';
           return;
         }
-        const baseCode = scannedCode.split('-')[0] + '-' + scannedCode.split('-')[1];
-        console.log('🔎 Scanned:', scannedCode, '| Base code:', baseCode);
+
+                let baseCode = scannedCode.trim();
+
+                if (/^\d+$/.test(baseCode)) {
+                  console.warn('⚠️ Detected numeric-only barcode, might be misread CODE128:', baseCode);
+                  this.scanStatusMessage = '⚠️ Barcode misread as numeric. Try adjusting camera or reprint barcode.';
+                  alert('⚠️ Barcode misread as numeric. Try to re-scan closer or reprint barcode with text display.');
+                  return;
+                }
+
+                if (baseCode.split('-').length >= 3) {
+                  baseCode = baseCode.split('-')[0] + '-' + baseCode.split('-')[1];
+                }
+
+                console.log('🔎 Scanned:', scannedCode, '| Base code:', baseCode);
 
         try {
 
@@ -857,7 +870,15 @@ stopQuagga() {
           const svgId = `barcode-${i}`;
           const svgElement = printWindow.document.getElementById(svgId);
           if (svgElement) {
-            JsBarcode(svgElement, uniqueBarcodeId, { format: "CODE128", displayValue: false, height: 40, width: 2, margin: 5 });
+            JsBarcode(svgElement, uniqueBarcodeId, { 
+              format: "CODE128", 
+              displayValue: true, 
+              textMargin: 2,
+              fontSize: 12,
+              height: 40,
+              width: 2
+            });
+
           }
         }
         printWindow.focus();
