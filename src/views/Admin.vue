@@ -514,58 +514,54 @@ stopQuagga() {
 
       nextTick(() => this.initQuagga());
     },
+      async handleBarcodeScanned(scannedCode) {
+        if (!scannedCode) {
+          this.scanStatusMessage = 'No barcode captured.';
+          return;
+        }
+        const baseCode = scannedCode.split('-')[0] + '-' + scannedCode.split('-')[1];
+        console.log('🔎 Scanned:', scannedCode, '| Base code:', baseCode);
 
-async handleBarcodeScanned(scannedCode) {
-  if (!scannedCode) {
-    this.scanStatusMessage = 'No barcode captured.';
-    return;
-  }
+        try {
 
-  try {
-    // 1️⃣ Find the scanned product in stock_in
-    const { data: item, error: findError } = await supabase
-      .from('stock_in')
-      .select('*')
-      .eq('barcode_id', scannedCode)
-      .single();
+          const { data: item, error: findError } = await supabase
+            .from('stock_in')
+            .select('*')
+            .ilike('barcode_id', `%${baseCode}%`)
+            .maybeSingle();
 
-    if (findError || !item) {
-      this.scanStatusMessage = '❌ Unknown barcode. Item not found.';
-      alert('Barcode not found in stock.');
-      return;
-    }
+          if (findError || !item) {
+            this.scanStatusMessage = '❌ Unknown barcode. Item not found.';
+            alert(`Barcode not found in stock.\n\nScanned: ${scannedCode}`);
+            return;
+          }
 
-    // 2️⃣ Show success popup
-    alert(`✅ Scanned Successfully!\n\nProduct: ${item.product_name}\nSize: ${item.size}`);
+          alert(`✅ Scanned Successfully!\n\nProduct: ${item.product_name}\nSize: ${item.size}`);
 
-    // 3️⃣ Decrement quantity (but not below 0)
-    const newQty = Math.max(item.quantity - 1, 0);
+          const newQty = Math.max(item.quantity - 1, 0);
 
-    const { error: updateError } = await supabase
-      .from('stock_in')
-      .update({ quantity: newQty })
-      .eq('barcode_id', scannedCode);
+          const { error: updateError } = await supabase
+            .from('stock_in')
+            .update({ quantity: newQty })
+            .eq('barcode_id', item.barcode_id);
 
-    if (updateError) throw updateError;
+          if (updateError) throw updateError;
 
-    console.log(`✅ Updated ${item.product_name} quantity from ${item.quantity} → ${newQty}`);
+          console.log(`✅ Updated ${item.product_name} quantity from ${item.quantity} → ${newQty}`);
 
-    // 4️⃣ Update local state
-    this.stockInHistory = this.stockInHistory.map(row =>
-      row.barcode_id === scannedCode ? { ...row, quantity: newQty } : row
-    );
+          this.stockInHistory = this.stockInHistory.map(row =>
+            row.barcode_id === item.barcode_id ? { ...row, quantity: newQty } : row
+          );
 
-    // 5️⃣ Stop scanner after success
-    this.stopQuagga();
-    this.isProductScanned = true;
-    this.scanStatusMessage = `✅ ${item.product_name} updated. Remaining: ${newQty}`;
+          this.stopQuagga();
+          this.isProductScanned = true;
+          this.scanStatusMessage = `✅ ${item.product_name} updated. Remaining: ${newQty}`;
 
-  } catch (err) {
-    console.error('Scan error:', err);
-    alert('⚠️ Failed to process scan: ' + err.message);
-  }
-},
-
+        } catch (err) {
+          console.error('Scan error:', err);
+          alert('⚠️ Failed to process scan: ' + err.message);
+        }
+      },
 
 
     closeScanModal() {
@@ -576,7 +572,7 @@ async handleBarcodeScanned(scannedCode) {
     },
       captureBarcode() {
         if (!this.lastDetectedCode) {
-          alert('Wala pang nakita na barcode — ilagay sa camera view muna.');
+          alert('Barcode Note detected Please Try Again!');
           return;
         }
         this.handleBarcodeScanned(this.lastDetectedCode);
