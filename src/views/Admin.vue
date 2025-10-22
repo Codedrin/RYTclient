@@ -221,8 +221,8 @@
                   </p>
                   <p class="card-text mb-1 small text-muted">
                     <i class="fas fa-map-marker-alt me-2"></i>
-                    {{ order.shipping_addr ? order.shipping_addr.substring(0, 40) : 'Address Missing' }}
-                    <span v-if="order.shipping_addr && order.shipping_addr.length > 40">...</span>
+                    {{ order.shipping_address ? order.shipping_address.substring(0, 40) : 'Address Missing' }}
+                    <span v-if="order.shipping_address && order.shipping_address.length > 40">...</span>
                   </p>
                   <p class="card-text mb-2">
                     <i class="fas fa-tag me-2 text-muted"></i>Size: {{ order.size }}
@@ -476,7 +476,6 @@ initQuagga() {
     Quagga.start();
     this.scanStatusMessage = 'Camera ready. Align barcode in view.';
 
-    // store lastDetectedCode for Capture button, and optionally auto-handle
     Quagga.onDetected((result) => {
       const code = result && result.codeResult && result.codeResult.code;
       if (!code) return;
@@ -484,10 +483,10 @@ initQuagga() {
       console.log('📦 Detected barcode:', code);
 
       if (this.autoDetect) {
-        // auto flow: immediately handle scanned code
+
         this.handleBarcodeScanned(code);
       } else {
-        // capture flow: just update status so user can press Capture
+
         this.scanStatusMessage = `Detected: ${code} — press Capture to confirm`;
       }
     });
@@ -517,32 +516,56 @@ stopQuagga() {
     },
 
 async handleBarcodeScanned(scannedCode) {
-  if (!this.orderToFulfill) {
-    console.warn('No order to fulfill set.');
-    return;
-  }
-
-  const prefix = (this.orderToFulfill.product_name || '').slice(0, 4).toUpperCase();
-
   if (!scannedCode) {
     this.scanStatusMessage = 'No barcode captured.';
     return;
   }
 
-  if (scannedCode.startsWith(prefix)) {
-    this.isProductScanned = true;
-    this.scanStatusMessage = `✅ Matched ${this.orderToFulfill.product_name} (${scannedCode})`;
-    this.stopQuagga();
-    this.showScanModal = false;
+  try {
+    // 1️⃣ Find the scanned product in stock_in
+    const { data: item, error: findError } = await supabase
+      .from('stock_in')
+      .select('*')
+      .eq('barcode_id', scannedCode)
+      .single();
 
-    // wait briefly then deduct stock
-    await new Promise(r => setTimeout(r, 200));
-    await this.updateStockOut();
-  } else {
-    this.isProductScanned = false;
-    this.scanStatusMessage = '❌ Barcode mismatch — please scan the correct item.';
+    if (findError || !item) {
+      this.scanStatusMessage = '❌ Unknown barcode. Item not found.';
+      alert('Barcode not found in stock.');
+      return;
+    }
+
+    // 2️⃣ Show success popup
+    alert(`✅ Scanned Successfully!\n\nProduct: ${item.product_name}\nSize: ${item.size}`);
+
+    // 3️⃣ Decrement quantity (but not below 0)
+    const newQty = Math.max(item.quantity - 1, 0);
+
+    const { error: updateError } = await supabase
+      .from('stock_in')
+      .update({ quantity: newQty })
+      .eq('barcode_id', scannedCode);
+
+    if (updateError) throw updateError;
+
+    console.log(`✅ Updated ${item.product_name} quantity from ${item.quantity} → ${newQty}`);
+
+    // 4️⃣ Update local state
+    this.stockInHistory = this.stockInHistory.map(row =>
+      row.barcode_id === scannedCode ? { ...row, quantity: newQty } : row
+    );
+
+    // 5️⃣ Stop scanner after success
+    this.stopQuagga();
+    this.isProductScanned = true;
+    this.scanStatusMessage = `✅ ${item.product_name} updated. Remaining: ${newQty}`;
+
+  } catch (err) {
+    console.error('Scan error:', err);
+    alert('⚠️ Failed to process scan: ' + err.message);
   }
 },
+
 
 
     closeScanModal() {
@@ -743,7 +766,7 @@ async handleBarcodeScanned(scannedCode) {
     });
     if (logError) console.warn('Failed to log stock-out:', logError);
 
-    alert(`✅ Order #${orderId.slice(0, 8)} shipped — stock updated.`);
+    alert(`✅ Order #${orderId.slice(0    , 8)} shipped — stock updated.`);
     this.isProductScanned = false;
     this.orderToFulfill = null;
     this.fetchProcessedOrders();
