@@ -396,6 +396,8 @@ export default {
       isMobile: false,
       adminMenuOpen: false,
       desktopAdminDropdownOpen: false,
+      lastDetectedCode: null,
+      autoDetect: true,
       showLogoutModal: false,
       showProfileModal: false,
       showBarcodeModal: false,
@@ -448,43 +450,62 @@ export default {
     /* ============================
        --- QUAGGA BARCODE SCANNER ---
        ============================ */
-    initQuagga() {
-      if (typeof Quagga === 'undefined' || !Quagga.init) {
-        this.scanStatusMessage = 'Error: Barcode scanner library not loaded.';
-        return;
+initQuagga() {
+  if (typeof Quagga === 'undefined' || !Quagga.init) {
+    this.scanStatusMessage = 'Error: Barcode scanner library not loaded.';
+    return;
+  }
+
+  Quagga.init({
+    inputStream: {
+      name: 'Live',
+      type: 'LiveStream',
+      target: document.querySelector('#scanner-container'),
+      constraints: { width: 600, height: 320, facingMode: 'environment' }
+    },
+    decoder: { readers: ['code_128_reader', 'ean_reader', 'upc_reader', 'code_39_reader'] },
+    locator: { patchSize: 'medium', halfSample: true },
+    locate: true
+  }, (err) => {
+    if (err) {
+      console.error('Quagga initialization error:', err);
+      this.scanStatusMessage = 'ERROR: Could not access camera.';
+      return;
+    }
+
+    Quagga.start();
+    this.scanStatusMessage = 'Camera ready. Align barcode in view.';
+
+    // store lastDetectedCode for Capture button, and optionally auto-handle
+    Quagga.onDetected((result) => {
+      const code = result && result.codeResult && result.codeResult.code;
+      if (!code) return;
+      this.lastDetectedCode = code;
+      console.log('📦 Detected barcode:', code);
+
+      if (this.autoDetect) {
+        // auto flow: immediately handle scanned code
+        this.handleBarcodeScanned(code);
+      } else {
+        // capture flow: just update status so user can press Capture
+        this.scanStatusMessage = `Detected: ${code} — press Capture to confirm`;
       }
+    });
+  });
+},
 
-      Quagga.init({
-        inputStream: {
-          name: 'Live',
-          type: 'LiveStream',
-          target: document.querySelector('#scanner-container'),
-          constraints: { width: 600, height: 320, facingMode: 'environment' }
-        },
-        decoder: { readers: ['code_128_reader', 'ean_reader', 'upc_reader', 'code_39_reader'] },
-        locator: { patchSize: 'medium', halfSample: true },
-        locate: true
-      }, (err) => {
-        if (err) {
-          console.error('Quagga initialization error:', err);
-          this.scanStatusMessage = 'ERROR: Could not access camera.';
-          return;
-        }
 
-        Quagga.start();
-        Quagga.onDetected((result) => {
-  const code = result.codeResult.code;
-  console.log('📦 Detected barcode:', code);
-  this.handleBarcodeScanned(code);
-});
+stopQuagga() {
+  try {
+    if (Quagga && Quagga.stop) {
+      Quagga.stop();
+      Quagga.offDetected && Quagga.offDetected();
+    }
+  } catch (err) {
+    console.warn('Error stopping Quagga:', err);
+  }
+},
 
-        this.scanStatusMessage = 'Camera ready. Press "Capture Barcode" when centered.';
-      });
-    },
-
-    stopQuagga() {
-      if (Quagga && Quagga.stop) Quagga.stop();
-    },
 
     startScanForOrder(order) {
       this.orderToFulfill = order;
@@ -495,27 +516,34 @@ export default {
       nextTick(() => this.initQuagga());
     },
 
-    handleBarcodeScanned(scannedCode) {
-      if (!this.orderToFulfill) return;
+async handleBarcodeScanned(scannedCode) {
+  if (!this.orderToFulfill) {
+    console.warn('No order to fulfill set.');
+    return;
+  }
 
-const prefix = this.orderToFulfill.product_name.slice(0, 4).toUpperCase();
-if (scannedCode.startsWith(prefix)) {
-  this.isProductScanned = true;
-  this.scanStatusMessage = `✅ Matched ${this.orderToFulfill.product_name}`;
-  this.stopQuagga();
-  this.showScanModal = false;
+  const prefix = (this.orderToFulfill.product_name || '').slice(0, 4).toUpperCase();
 
-  // Optional: immediately deduct stock
-  this.updateStockOut();
-} else {
-  this.isProductScanned = false;
-  this.scanStatusMessage = '❌ Barcode mismatch — please scan the correct item.';
-}
+  if (!scannedCode) {
+    this.scanStatusMessage = 'No barcode captured.';
+    return;
+  }
 
+  if (scannedCode.startsWith(prefix)) {
+    this.isProductScanned = true;
+    this.scanStatusMessage = `✅ Matched ${this.orderToFulfill.product_name} (${scannedCode})`;
+    this.stopQuagga();
+    this.showScanModal = false;
 
-      this.stopQuagga();
-      this.showScanModal = false;
-    },
+    // wait briefly then deduct stock
+    await new Promise(r => setTimeout(r, 200));
+    await this.updateStockOut();
+  } else {
+    this.isProductScanned = false;
+    this.scanStatusMessage = '❌ Barcode mismatch — please scan the correct item.';
+  }
+},
+
 
     closeScanModal() {
       this.stopQuagga();
@@ -523,6 +551,13 @@ if (scannedCode.startsWith(prefix)) {
       this.orderToFulfill = null;
       this.isProductScanned = false;
     },
+      captureBarcode() {
+        if (!this.lastDetectedCode) {
+          alert('Wala pang nakita na barcode — ilagay sa camera view muna.');
+          return;
+        }
+        this.handleBarcodeScanned(this.lastDetectedCode);
+      },
 
     /* ============================
        --- USER PROFILE METHODS ---
@@ -642,64 +677,84 @@ if (scannedCode.startsWith(prefix)) {
     /* ============================
        --- STOCK OUT METHODS ---
        ============================ */
-    async updateStockOut() {
-      if (!this.orderToFulfill || !this.isProductScanned) {
-        alert('Cannot confirm shipment: Scan required or order data missing.');
-        return;
+  async updateStockOut() {
+  if (!this.orderToFulfill || !this.isProductScanned) {
+    alert('Cannot confirm shipment: Scan required or order data missing.');
+    return;
+  }
+
+  const orderId = this.orderToFulfill.order_id;
+  let productId = this.orderToFulfill.product_id;
+  const quantityToShip = this.orderToFulfill.quantity;
+
+  try {
+    // find product by ID or name
+    if (!productId) {
+      const { data: found, error: findErr } = await supabase
+        .from('products')
+        .select('id, quantity')
+        .ilike('brand', this.orderToFulfill.product_name)
+        .limit(1)
+        .single();
+
+      if (findErr || !found) {
+        throw new Error('Product not linked in order and cannot be found by name.');
       }
+      productId = found.id;
+    }
 
-      const orderId = this.orderToFulfill.order_id;
-      const productId = this.orderToFulfill.product_id;
-      const quantityToShip = this.orderToFulfill.quantity;
+    const { data: currentProduct, error: prodErr } = await supabase
+      .from('products')
+      .select('quantity')
+      .eq('id', productId)
+      .single();
 
-      try {
-        // 1. Update Product Quantity
-        const { data: currentProduct, error: findError } = await supabase.from('products')
-          .select('quantity').eq('id', productId).single();
-        if (findError) throw new Error('Could not retrieve current product stock.');
+    if (prodErr || !currentProduct) throw new Error('Could not retrieve product stock.');
 
-        const newQuantity = currentProduct.quantity - quantityToShip;
-        if (newQuantity < 0) {
-          alert('Error: Not enough stock to fulfill this order.');
-          return;
-        }
+    const newQuantity = currentProduct.quantity - quantityToShip;
+    if (newQuantity < 0) {
+      alert('Error: Not enough stock to fulfill this order.');
+      return;
+    }
 
-        let newStatus = '';
-        if (newQuantity >= 12) newStatus = 'In Stock';
-        else if (newQuantity >= 1) newStatus = 'Low Stock';
-        else newStatus = 'Out of Stock';
+    let newStatus = '';
+    if (newQuantity >= 12) newStatus = 'In Stock';
+    else if (newQuantity >= 1) newStatus = 'Low Stock';
+    else newStatus = 'Out of Stock';
 
-        const { error: updateProductError } = await supabase.from('products')
-          .update({ quantity: newQuantity, status: newStatus })
-          .eq('id', productId);
-        if (updateProductError) throw updateProductError;
+    const { error: updateProductError } = await supabase
+      .from('products')
+      .update({ quantity: newQuantity, status: newStatus })
+      .eq('id', productId);
+    if (updateProductError) throw updateProductError;
 
-        // 2. Update Order Status
-        const { error: updateOrderError } = await supabase.from('orders')
-          .update({ status: 'Shipped', date_shipped: new Date().toISOString() })
-          .eq('order_id', orderId);
-        if (updateOrderError) throw updateOrderError;
+    const { error: updateOrderError } = await supabase
+      .from('orders')
+      .update({ status: 'Shipped', date_shipped: new Date().toISOString() })
+      .eq('order_id', orderId);
+    if (updateOrderError) throw updateOrderError;
 
-        // 3. Log Stock Out Transaction
-        const { error: logError } = await supabase.from('stock_out').insert({
-          order_id: orderId,
-          product_id: productId,
-          product_name: this.orderToFulfill.product_name,
-          quantity: quantityToShip,
-          date_and_time: new Date().toISOString()
-        });
-        if (logError) console.warn('Warning: Failed to log stock-out transaction.', logError);
+    const { error: logError } = await supabase.from('stock_out').insert({
+      order_id: orderId,
+      product_id: productId,
+      product_name: this.orderToFulfill.product_name,
+      quantity: quantityToShip,
+      date_and_time: new Date().toISOString()
+    });
+    if (logError) console.warn('Failed to log stock-out:', logError);
 
-        alert(`✅ Order #${orderId.slice(0, 8)} successfully shipped! Stock updated.`);
-        this.closeScanModal();
-        this.fetchProcessedOrders();
-        this.fetchDashboardData();
+    alert(`✅ Order #${orderId.slice(0, 8)} shipped — stock updated.`);
+    this.isProductScanned = false;
+    this.orderToFulfill = null;
+    this.fetchProcessedOrders();
+    this.fetchDashboardData();
 
-      } catch (error) {
-        console.error('Stock Out/Shipping Error:', error.message);
-        alert('⚠️ Failed to confirm shipment: ' + error.message);
-      }
-    },
+  } catch (error) {
+    console.error('Stock Out/Shipping Error:', error);
+    alert('⚠️ Failed to confirm shipment: ' + (error.message || error));
+  }
+},
+
 
     /* ============================
        --- STOCK IN METHODS ---
