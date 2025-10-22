@@ -514,75 +514,62 @@ stopQuagga() {
 
       nextTick(() => this.initQuagga());
     },
-   async handleBarcodeScanned(scannedCode) {
+
+
+async handleBarcodeScanned(scannedCode) {
   if (!scannedCode) {
     this.scanStatusMessage = 'No barcode captured.';
     return;
   }
 
-  // 1) Normalize scanned value
-  let raw = String(scannedCode).trim();
-  raw = raw.replace(/\s+/g, ''); // remove whitespace
+  // ✅ Normalize scanned value
+  let raw = String(scannedCode).trim().replace(/\s+/g, '');
   const rawUpper = raw.toUpperCase();
 
-  // Try to extract base: assume format PREFIX-<timestamp>[-suffix]
-  // e.g. ADVE-1761151907576-002  => base = ADVE-1761151907576
-  let baseCode = rawUpper;
-  const parts = rawUpper.split('-');
-  if (parts.length >= 2) {
-    baseCode = parts.slice(0, 2).join('-'); // join first two parts only
-  } else {
-    // fallback: try regex to find LETTERS-DIGITS (minimum digits 6)
-    const m = rawUpper.match(/([A-Z]+-\d{6,})/);
-    if (m && m[1]) baseCode = m[1];
+  // ⚙️ If numeric-only (UPC/EAN), it's not one of your generated codes
+  if (/^\d+$/.test(rawUpper)) {
+    this.scanStatusMessage = `⚠️ Barcode [${rawUpper}] looks like a UPC/EAN, not your system code.`;
+    alert(`⚠️ Invalid barcode format detected.\n\nDetected: ${rawUpper}\nYour system uses codes like ADVE-1234567890`);
+    return;
   }
 
-  console.log('🔎 Scanned raw:', raw, '| Derived base:', baseCode);
+  // ✅ Extract base code (PREFIX-<timestamp>)
+  let baseCode = rawUpper;
+  const parts = rawUpper.split('-');
+  if (parts.length >= 2) baseCode = parts.slice(0, 2).join('-');
+  console.log('🔎 Scanned raw:', raw, '| Base:', baseCode);
+
   this.scanStatusMessage = `Scanning: ${raw} — trying base: ${baseCode}`;
 
   try {
-    // 2) Primary lookup: partial, case-insensitive match on baseCode
-    let { data: item, error: findError } = await supabase
+    // ✅ Step 1: Lookup item in stock_in
+    const { data: item, error } = await supabase
       .from('stock_in')
-      .select('*')
+      .select('barcode_id, product_name, size, quantity')
       .ilike('barcode_id', `%${baseCode}%`)
       .maybeSingle();
 
-    // 3) Fallback: maybe DB stored the full printed code (with suffix) so try exact-ish match on raw too
-    if ((!item || Object.keys(item).length === 0) && rawUpper !== baseCode) {
-      const fallback = await supabase
-        .from('stock_in')
-        .select('*')
-        .ilike('barcode_id', `%${rawUpper}%`)
-        .maybeSingle();
+    if (error) throw error;
 
-      if (fallback && Object.keys(fallback).length) {
-        item = fallback;
-      }
-    }
-
-    // 4) Still not found? Try matching just the prefix (e.g. ADVE) + numeric part only
-    if (!item || Object.keys(item).length === 0) {
-      const prefixMatch = baseCode.split('-')[0];
-      if (prefixMatch) {
-        const tryPrefix = await supabase
-          .from('stock_in')
-          .select('*')
-          .ilike('barcode_id', `${prefixMatch}%`)
-          .limit(1)
-          .maybeSingle();
-        if (tryPrefix && Object.keys(tryPrefix).length) item = tryPrefix;
-      }
-    }
-
-    if (!item || Object.keys(item).length === 0) {
-      this.scanStatusMessage = '❌ Unknown barcode. Item not found.';
-      alert(`Barcode not found in stock.\n\nScanned: ${raw}\nTried base: ${baseCode}`);
+    if (!item) {
+      this.scanStatusMessage = '❌ Barcode not found in stock.';
+      alert(`❌ Barcode not found in stock.\n\nScanned: ${raw}\nTried: ${baseCode}`);
       return;
     }
 
-    // 5) Success — decrease stock (1 unit)
+    // ✅ Step 2: Validate product fields
+    if (!item.product_name || !item.size) {
+      alert('⚠️ Product record incomplete for barcode: ' + item.barcode_id);
+      return;
+    }
+
+    // ✅ Step 3: Handle quantity
     const currentQty = Number(item.quantity) || 0;
+    if (currentQty <= 0) {
+      alert(`⚠️ Out of stock!\n\nProduct: ${item.product_name}\nSize: ${item.size}`);
+      return;
+    }
+
     const newQty = Math.max(currentQty - 1, 0);
 
     const { error: updateError } = await supabase
@@ -592,6 +579,7 @@ stopQuagga() {
 
     if (updateError) throw updateError;
 
+    // ✅ Step 4: Update UI
     this.stockInHistory = this.stockInHistory.map(row =>
       row.barcode_id === item.barcode_id ? { ...row, quantity: newQty } : row
     );
@@ -599,13 +587,15 @@ stopQuagga() {
     this.stopQuagga();
     this.isProductScanned = true;
     this.scanStatusMessage = `✅ ${item.product_name} updated. Remaining: ${newQty}`;
-    alert(`✅ Scanned Successfully!\n\nProduct: ${item.product_name}\nSize: ${item.size}\nRemaining: ${newQty}`);
-
+    alert(
+      `✅ Scanned Successfully!\n\nProduct: ${item.product_name}\nSize: ${item.size}\nRemaining: ${newQty}`
+    );
   } catch (err) {
     console.error('Scan error:', err);
     alert('⚠️ Failed to process scan: ' + (err.message || err));
   }
 },
+
 
     closeScanModal() {
       this.stopQuagga();
@@ -855,13 +845,13 @@ stopQuagga() {
               date_and_time: this.stockIn.dateTime
           }).select().single();
 
-          if (logError) {
-            alert('Warning: Failed to log transaction. ' + logError.message);
-          } else {
-            console.log('✅ Stock-In Logged:', insertedStock);
-            // 🔹 Trigger automatic scan simulation (as if scanned right away)
-            this.handleBarcodeScanned(insertedStock.barcode_id);
-          }
+                      if (logError) {
+                  alert('Warning: Failed to log transaction. ' + logError.message);
+                } else {
+                  console.log('✅ Stock-In Logged:', insertedStock);
+                  this.scanStatusMessage = `Stock In added for ${this.stockIn.productName}`;
+                }
+
 
 
       this.itemToPrint = { barcodeBase, productName: this.stockIn.productName, size: this.stockIn.size, quantity: this.stockIn.quantity };
