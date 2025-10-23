@@ -457,40 +457,37 @@ initQuagga() {
   }
 
   Quagga.init({
-    inputStream: {
-      name: 'Live',
-      type: 'LiveStream',
-      target: document.querySelector('#scanner-container'),
-      constraints: { width: 600, height: 320, facingMode: 'environment' }
-    },
-    decoder: { readers: ['code_128_reader', 'ean_reader', 'upc_reader', 'code_39_reader'] },
-    locator: { patchSize: 'medium', halfSample: true },
-    locate: true
-  }, (err) => {
-    if (err) {
-      console.error('Quagga initialization error:', err);
-      this.scanStatusMessage = 'ERROR: Could not access camera.';
-      return;
+  inputStream: {
+    name: "Live",
+    type: "LiveStream",
+    target: document.querySelector('#scanner-container'),
+    constraints: {
+      width: 640,
+      height: 480,
+      facingMode: "environment"
     }
+  },
+  decoder: { readers: ['code_128_reader'] },
+  locator: {
+    halfSample: false,
+    patchSize: "medium"
+  },
+  locate: true
+}, (err) => {
+  if (err) {
+    console.error("Quagga init failed:", err);
+    return;
+  }
 
-    Quagga.start();
-    this.scanStatusMessage = 'Camera ready. Align barcode in view.';
+  Quagga.start();
+  this.scanStatusMessage = "Camera ready. Align barcode clearly in view.";
 
-    Quagga.onDetected((result) => {
-      const code = result && result.codeResult && result.codeResult.code;
-      if (!code) return;
-      this.lastDetectedCode = code;
-      console.log('📦 Detected barcode:', code);
-
-      if (this.autoDetect) {
-
-        this.handleBarcodeScanned(code);
-      } else {
-
-        this.scanStatusMessage = `Detected: ${code} — press Capture to confirm`;
-      }
-    });
+  Quagga.onDetected((result) => {
+    const code = result.codeResult.code;
+    console.log("Detected:", code);
+    this.handleBarcodeScanned(code);
   });
+});
 },
 
 
@@ -895,8 +892,10 @@ async handleBarcodeScanned(scannedCode) {
               displayValue: true, 
               textMargin: 2,
               fontSize: 12,
-              height: 40,
-              width: 2
+              height: 60,
+              margin: 8,
+              width: 2.5, 
+              lineColor: '#000'
             });
 
           }
