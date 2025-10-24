@@ -1,6 +1,7 @@
 <template>
   <div class="ordering-page">
-    <nav class="navbar navbar-expand-md navbar-light bg-white py-3 border-bottom shadow-sm sticky-top">
+<nav class="navbar navbar-expand-md navbar-light py-3 border-bottom shadow-sm">
+
       <div class="container">
         <a class="navbar-brand d-flex align-items-center" href="#">
           <img src="../assets/background.jpg" alt="RYT-Tyre Logo" height="40" class="me-2 rounded-circle" />
@@ -18,53 +19,62 @@
           <span class="navbar-toggler-icon"></span>
         </button>
 
-        <div class="d-none d-md-flex align-items-center">
-          <a href="#" class="nav-icon-link" @click.prevent="router.push({ name: 'profile' })" title="My Account">
-            <img src="../assets/userIcon.png" alt="Account Management" height="28" />
-          </a>
-          <a href="#" class="nav-icon-link" @click.prevent="router.push({ name: 'order tracking' })" title="Track Order">
-            <img src="../assets/orderTrackicon.png" alt="Order Tracking" height="28" />
-          </a>
-          <a href="#" class="nav-icon-link" @click.prevent="router.push({ name: 'cart' })" title="Shopping Cart">
-            <img src="../assets/cartIcon.png" alt="Cart" height="28" />
-          </a>
-        </div>
+          <div class="d-none d-md-flex align-items-center gap-4">
+            <a href="#" class="nav-icon-link" @click.prevent="router.push({ name: 'profile' })" title="My Account">
+              <i class="fas fa-user-circle"></i>
+            </a>
+            <a href="#" class="nav-icon-link" @click.prevent="router.push({ name: 'order tracking' })" title="Track Order">
+              <i class="fas fa-truck"></i>
+            </a>
+            <a href="#" class="nav-icon-link" @click.prevent="router.push({ name: 'cart' })" title="Shopping Cart">
+              <i class="fas fa-shopping-bag"></i>
+            </a>
+          </div>
+
       </div>
     </nav>
 
-    <div class="container d-md-none py-2 bg-white border-bottom">
-      <form @submit.prevent>
-          <div class="input-group">
-              <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
-              <input class="form-control rounded-pill rounded-start-0 border-start-0" type="search" placeholder="Search..." aria-label="Search" />
+      <div class="mobile-search d-md-none px-3 py-2">
+        <form @submit.prevent>
+          <div class="input-group shadow-sm">
+            <span class="input-group-text bg-white border-end-0">
+              <i class="bi bi-search text-secondary"></i>
+            </span>
+            <input class="form-control border-start-0 rounded-pill rounded-start-0" 
+                  type="search" placeholder="Search..." aria-label="Search" />
           </div>
-      </form>
-    </div>
-
-    <Transition name="slide-right">
-      <div v-if="isMobileMenuOpen" class="mobile-side-panel">
-        <ul class="list-unstyled mb-0">
-          <li>
-            <a href="#" class="panel-link" @click.prevent="navigateAndCloseMenu('profile')">
-              <img src="../assets/userIcon.png" alt="Account" height="24" />
-              <span>My Account</span>
-            </a>
-          </li>
-          <li>
-            <a href="#" class="panel-link" @click.prevent="navigateAndCloseMenu('order tracking')">
-              <img src="../assets/orderTrackicon.png" alt="Track Order" height="24" />
-              <span>Track Order</span>
-            </a>
-          </li>
-          <li>
-            <a href="#" class="panel-link" @click.prevent="navigateAndCloseMenu('cart')">
-              <img src="../assets/cartIcon.png" alt="Cart" height="24" />
-              <span>Shopping Cart</span>
-            </a>
-          </li>
-        </ul>
+        </form>
       </div>
-    </Transition>
+
+  <Transition name="slide-right">
+  <div v-if="isMobileMenuOpen" class="mobile-fullscreen-panel">
+      <button class="close-btn" @click="isMobileMenuOpen = false">
+        <i class="fas fa-times"></i>
+      </button>
+
+
+    <ul class="list-unstyled text-center mt-5">
+      <li class="mb-4">
+        <a href="#" class="panel-link" @click.prevent="navigateAndCloseMenu('profile')">
+          <i class="bi bi-person-circle me-2"></i>
+          My Account
+        </a>
+      </li>
+      <li class="mb-4">
+        <a href="#" class="panel-link" @click.prevent="navigateAndCloseMenu('order tracking')">
+          <i class="bi bi-truck me-2"></i>
+          Track Order
+        </a>
+      </li>
+      <li class="mb-4">
+        <a href="#" class="panel-link" @click.prevent="navigateAndCloseMenu('cart')">
+          <i class="bi bi-bag-check me-2"></i>
+          Shopping Cart
+        </a>
+      </li>
+    </ul>
+  </div>
+</Transition>
 
     <main class="container py-4">
       
@@ -190,7 +200,7 @@
    - Category Filtering
 ============================================================ */
 
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter, onBeforeRouteLeave } from 'vue-router';
 import { getProducts, getProductImageURL } from '../services/apiService';
 import { useCart } from '../composables/useCart';
@@ -276,6 +286,26 @@ onMounted(async () => {
     loading.value = false;
   }
 });
+
+const handleScroll = () => {
+  const navbar = document.querySelector('.navbar');
+  if (navbar) {
+    if (window.scrollY > 50) {
+      navbar.classList.add('scrolled');
+    } else {
+      navbar.classList.remove('scrolled');
+    }
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('scroll', handleScroll);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll);
+});
+
 
 /* ============================================================
    CART MANAGEMENT
@@ -494,4 +524,219 @@ footer { background-color: rgba(12, 10, 36, 0.8) !important; backdrop-filter: bl
   transform: translateY(-3px);
   color: #fff;
 }
+
+
+.navbar {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1055;
+  background: rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* When scrolled */
+.navbar.scrolled {
+  background: rgba(12, 10, 36, 0.7) !important;
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.4);
+}
+
+
+body,
+.ordering-page {
+  padding-top: 90px;
+}
+
+
+.navbar-brand strong {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  background: linear-gradient(45deg, #0066ff, #8a2be2);
+  -webkit-background-clip: text;
+  color: transparent;
+}
+.ordering-page::before {
+  background-image:
+    radial-gradient(circle at 15% 20%, #5a7dff 10%, transparent 50%),
+    radial-gradient(circle at 80% 80%, #d08bff 10%, transparent 40%),
+    radial-gradient(circle at 50% 40%, #ff8ed1 10%, transparent 40%),
+    linear-gradient(120deg, #0c0a24, #241e4e, #17133d);
+  filter: blur(80px);
+  opacity: 0.9;
+}
+.product-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.product-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 30px rgba(13,110,253,0.25);
+}
+
+.card-img-container {
+  background: linear-gradient(to bottom, rgba(255,255,255,0.9), rgba(240,240,255,0.7));
+  border-bottom: 2px solid rgba(255,255,255,0.2);
+}
+.nav-icon-link {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.6rem;
+  transition: all 0.3s ease;
+}
+
+.nav-icon-link:hover {
+  color: #0d6efd; 
+  transform: scale(1.15);
+}
+
+.nav-icon-link i {
+  vertical-align: middle;
+}
+
+/* Overriding CSS classes */
+.navbar-toggler {
+  border: none;
+}
+
+.navbar-toggler-icon {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Cpath stroke='rgba(255,255,255,0.9)' stroke-width='2' stroke-linecap='round' stroke-miterlimit='10' d='M4 7h22M4 15h22M4 23h22'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.mobile-search {
+  background: transparent; 
+  backdrop-filter: none;  
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.mobile-search .input-group {
+  width: 100%;
+}
+
+.mobile-search .form-control {
+  background-color: #f8f9fa; 
+  border: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-search .input-group-text {
+  background-color: #f8f9fa;
+  border: none;
+}
+
+
+
+.mobile-search .form-control {
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+.mobile-search .input-group-text {
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 50rem 0 0 50rem;
+}
+
+@media (max-width: 767.98px) {
+  .navbar-brand strong {
+    font-size: 1rem;
+  }
+
+  .navbar img {
+    height: 32px !important;
+  }
+
+  .navbar {
+    padding: 0.5rem 1rem !important;
+  }
+}
+
+/* 🌈 Full-Screen Mobile Panel */
+.mobile-fullscreen-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(13, 110, 253, 0.9), rgba(111, 66, 193, 0.9));
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 1100;
+  animation: fadeIn 0.4s ease;
+}
+
+/* Close button — more visible and larger tap area */
+.close-btn {
+  position: absolute;
+  top: 25px;
+  right: 25px;
+  width: 45px;
+  height: 45px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.15);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  color: #fff;
+  font-size: 1.6rem;
+  cursor: pointer;
+  z-index: 1200;
+  backdrop-filter: blur(10px);
+  transition: all 0.25s ease;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  color: #ffc107;
+  transform: rotate(90deg) scale(1.1);
+}
+
+.close-btn i {
+  pointer-events: none; /* Make sure icon doesn't block clicks */
+}
+
+/* Menu links */
+.panel-link {
+  color: #fff;
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.3rem;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease, transform 0.2s ease;
+}
+.panel-link:hover {
+  color: #ffc107;
+  transform: scale(1.1);
+}
+.panel-link i {
+  font-size: 1.5rem;
+  vertical-align: middle;
+}
+
+/* Transition effect */
+.slide-right-enter-active,
+.slide-right-leave-active {
+  transition: all 0.4s ease;
+}
+.slide-right-enter-from,
+.slide-right-leave-to {
+  opacity: 0;
+  transform: translateY(-100%);
+}
+
+/* Simple fade */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+
+
 </style>

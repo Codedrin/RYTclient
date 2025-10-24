@@ -12,8 +12,8 @@
 
       <div v-else-if="orders.length === 0" class="text-center py-5">
         <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
-        <h4 class="fw-bold">No Orders Found</h4>
-        <p class="text-muted">You haven't placed any orders yet.</p>
+        <h4 class="fw-bold text-light">No Orders Found</h4>
+        <p class="text-muted text-light">You haven't placed any orders yet.</p>
       </div>
 
       <div v-else>
@@ -181,9 +181,51 @@ const goToOrderingSystem = () => {
 onMounted(fetchOrders);
 </script>
 
-<style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;700&family=Roboto:wght@400&display=swap');
-/* ADDED STYLES FOR FAB */
+<style scoped>@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;700&family=Roboto:wght@400&display=swap');
+
+/* 🌈 Aurora Gradient Background (Matches Other Pages) */
+.order-tracking-page {
+  font-family: 'Roboto', sans-serif;
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Animated Aurora Background */
+.order-tracking-page::before {
+  content: '';
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background-image:
+    radial-gradient(circle at 15% 20%, #5a7dff 10%, transparent 50%),
+    radial-gradient(circle at 80% 80%, #d08bff 10%, transparent 40%),
+    radial-gradient(circle at 50% 40%, #ff8ed1 10%, transparent 40%),
+    linear-gradient(120deg, #0c0a24, #241e4e, #17133d);
+  filter: blur(80px);
+  opacity: 0.9;
+  animation: auroraAnimation 25s ease-in-out infinite;
+  z-index: 0;
+}
+
+@keyframes auroraAnimation {
+  0% { transform: rotate(0deg) translateX(0); }
+  50% { transform: rotate(180deg) translateX(10%); }
+  100% { transform: rotate(360deg) translateX(0); }
+}
+
+/* Keep main content above background */
+.container,
+.fab {
+  position: relative;
+  z-index: 2;
+}
+
+/* --- Floating Action Button (FAB) --- */
 .fab {
   position: fixed;
   bottom: 30px;
@@ -203,22 +245,99 @@ onMounted(fetchOrders);
   z-index: 1000;
   transition: transform 0.2s ease-in-out;
 }
-
 .fab:hover {
   transform: scale(1.1);
 }
-.order-tracking-page { font-family: 'Roboto', sans-serif; background-color: #f8f9fa; min-height: 100vh; }
-.section-title { font-family: 'Poppins', sans-serif; }
-.order-card { border: none; }
-.card-header h6 { font-family: 'Poppins', sans-serif; }
-.status-tracker { display: flex; align-items: flex-start; justify-content: space-between; overflow-x: auto; padding-bottom: 1rem; }
-.step { text-align: center; min-width: 100px; flex-shrink: 0; }
-.step .icon { width: 40px; height: 40px; border-radius: 50%; background-color: #e9ecef; color: #adb5bd; display: inline-flex; align-items: center; justify-content: center; font-size: 1.2rem; border: 3px solid #e9ecef; }
-.step .label { margin-top: 10px; font-size: 0.85rem; font-weight: 500; color: #6c757d; }
-.step.active .icon { background-color: #e7f1ff; color: #0d6efd; border-color: #0d6efd; }
-.step.active .label { color: #0d6efd; }
-.step.completed .icon { background-color: #198754; color: #fff; border-color: #198754; }
-.step.completed .label { color: #198754; }
-.connector { flex-grow: 1; height: 4px; background-color: #e9ecef; margin-top: 18px; }
-.connector.completed { background-color: #198754; }
+
+/* --- Section Title --- */
+.section-title {
+  font-family: 'Poppins', sans-serif;
+  color: #fff;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* --- Order Card (Glass Effect) --- */
+.order-card {
+  border: none;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.order-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(13, 110, 253, 0.25);
+}
+
+/* --- Card Header --- */
+.card-header h6 {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+}
+.card-header {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* --- Status Tracker --- */
+.status-tracker {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+}
+
+.step {
+  text-align: center;
+  min-width: 100px;
+  flex-shrink: 0;
+}
+.step .icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #e9ecef;
+  color: #adb5bd;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  border: 3px solid #e9ecef;
+}
+.step .label {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #6c757d;
+}
+.step.active .icon {
+  background-color: #e7f1ff;
+  color: #0d6efd;
+  border-color: #0d6efd;
+}
+.step.active .label {
+  color: #0d6efd;
+}
+.step.completed .icon {
+  background-color: #198754;
+  color: #fff;
+  border-color: #198754;
+}
+.step.completed .label {
+  color: #198754;
+}
+
+/* --- Connector --- */
+.connector {
+  flex-grow: 1;
+  height: 4px;
+  background-color: #e9ecef;
+  margin-top: 18px;
+}
+.connector.completed {
+  background-color: #198754;
+}
+
 </style>

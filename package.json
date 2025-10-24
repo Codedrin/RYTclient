@@ -16,6 +16,7 @@
     "@vercel/speed-insights": "^1.2.0",
     "@zxing/browser": "^0.1.5",
     "bootstrap": "^5.3.8",
+    "bootstrap-icons": "^1.13.1",
     "chart.js": "^4.5.0",
     "html5-qrcode": "^2.3.8",
     "jsbarcode": "^3.12.1",

@@ -139,35 +139,134 @@ const proceedToAddress = () => {
 };
 </script>
 
-<style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;700&family=Roboto:wght@400&display=swap');
+<style scoped>@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;700&family=Roboto:wght@400&display=swap');
 
+/* 🌈 Aurora Gradient Background (Unified with Other Pages) */
 .shopping-cart-page {
   font-family: 'Roboto', sans-serif;
-  background-color: #f8f9fa;
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
-.section-title, .card-header h5, .cart-item h6 {
+
+/* Animated Aurora Effect */
+.shopping-cart-page::before {
+  content: '';
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background-image:
+    radial-gradient(circle at 15% 20%, #5a7dff 10%, transparent 50%),
+    radial-gradient(circle at 80% 80%, #d08bff 10%, transparent 40%),
+    radial-gradient(circle at 50% 40%, #ff8ed1 10%, transparent 40%),
+    linear-gradient(120deg, #0c0a24, #241e4e, #17133d);
+  filter: blur(80px);
+  opacity: 0.9;
+  animation: auroraAnimation 25s ease-in-out infinite;
+  z-index: 0;
+}
+
+@keyframes auroraAnimation {
+  0% { transform: rotate(0deg) translateX(0); }
+  50% { transform: rotate(180deg) translateX(10%); }
+  100% { transform: rotate(360deg) translateX(0); }
+}
+
+/* Keep content above aurora */
+.container,
+.fab {
+  position: relative;
+  z-index: 2;
+}
+
+/* --- Section Title --- */
+.section-title {
   font-family: 'Poppins', sans-serif;
+  color: #fff;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
-.card { border: none; }
+
+/* --- Card Styling (Glassmorphism Effect) --- */
+.card {
+  border: none;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(13, 110, 253, 0.25);
+}
+
+.card-header {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* --- Cart Items --- */
 .cart-item img {
-  border: 1px solid #dee2e6;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.8);
 }
+.cart-item h6,
+.card-header h5 {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  color: #212529;
+}
+
+/* --- Form Controls --- */
 .form-control-sm {
   max-width: 80px;
   margin: 0 auto;
+  border-radius: 50rem;
+  text-align: center;
 }
+
+/* --- Order Summary --- */
 .list-group-item {
   background-color: transparent;
+  border: none;
+  font-family: 'Poppins', sans-serif;
 }
+.list-group-item span {
+  color: #212529;
+}
+.text-danger {
+  color: #dc3545 !important;
+}
+
+/* --- Primary Button --- */
 .btn-primary {
   font-family: 'Poppins', sans-serif;
   font-weight: 500;
   padding-top: 0.75rem;
   padding-bottom: 0.75rem;
+  border-radius: 50rem;
+  transition: all 0.3s ease-in-out;
+}
+.btn-primary:hover {
+  background-color: #0b5ed7;
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.4);
 }
 
-/* ADDED STYLES FOR FAB */
+/* --- Empty Cart State --- */
+.text-muted {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+.fa-shopping-cart {
+  opacity: 0.9;
+  color: #fff !important;
+}
+
+/* --- Floating Action Button (FAB) --- */
 .fab {
   position: fixed;
   bottom: 30px;
@@ -187,8 +286,8 @@ const proceedToAddress = () => {
   z-index: 1000;
   transition: transform 0.2s ease-in-out;
 }
-
 .fab:hover {
   transform: scale(1.1);
 }
+
 </style>

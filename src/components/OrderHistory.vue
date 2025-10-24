@@ -66,18 +66,97 @@ const pastOrders = ref([
 ]);
 </script>
 
-<style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;700&family=Roboto:wght@400&display=swap');
+<style scoped>@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;700&family=Roboto:wght@400&display=swap');
+
+/* 🌈 Aurora Gradient Background Style (Matches Other Pages) */
 .order-history-page {
   font-family: 'Roboto', sans-serif;
-  background-color: #f8f9fa;
   min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
-.section-title { font-family: 'Poppins', sans-serif; }
-.card { border: none; }
+
+/* Animated Aurora Effect */
+.order-history-page::before {
+  content: '';
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background-image:
+    radial-gradient(circle at 15% 20%, #5a7dff 10%, transparent 50%),
+    radial-gradient(circle at 80% 80%, #d08bff 10%, transparent 40%),
+    radial-gradient(circle at 50% 40%, #ff8ed1 10%, transparent 40%),
+    linear-gradient(120deg, #0c0a24, #241e4e, #17133d);
+  filter: blur(80px);
+  opacity: 0.9;
+  animation: auroraAnimation 25s ease-in-out infinite;
+  z-index: 0;
+}
+
+@keyframes auroraAnimation {
+  0% { transform: rotate(0deg) translateX(0); }
+  50% { transform: rotate(180deg) translateX(10%); }
+  100% { transform: rotate(360deg) translateX(0); }
+}
+
+/* Keep main content above background */
+.container {
+  position: relative;
+  z-index: 2;
+}
+
+/* --- Card Styling --- */
+.card {
+  border: none;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.card-header, .card-footer {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* --- Table Styling --- */
 .table thead th {
-  background-color: #f8f9fa;
+  background-color: rgba(255, 255, 255, 0.9);
   font-weight: 600;
   font-family: 'Poppins', sans-serif;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.05);
 }
+
+.table tbody tr:hover {
+  background-color: rgba(13, 110, 253, 0.05);
+  transition: background 0.3s ease;
+}
+
+/* --- Pagination Styling --- */
+.page-link {
+  border-radius: 50rem !important;
+  font-family: 'Poppins', sans-serif;
+}
+
+.page-item.active .page-link {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  color: #fff;
+}
+
+.page-link:hover {
+  background-color: rgba(13, 110, 253, 0.1);
+}
+
+/* --- Title --- */
+.section-title {
+  font-family: 'Poppins', sans-serif;
+  color: #fff;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
 </style>

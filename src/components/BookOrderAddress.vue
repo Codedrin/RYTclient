@@ -2,7 +2,7 @@
   <div class="address-book-page">
     <div class="container py-5">
       <div class="d-flex justify-content-between align-items-center mb-5">
-        <h2 class="fw-bold section-title text-center mb-0">Book Order Address</h2>
+        <h2 class="fw-bold section-title text-center mb-0 text-light">Book Order Address</h2>
         <button class="btn btn-primary rounded-pill px-4" @click="openAddModal">
           <i class="fas fa-plus me-2"></i>Add New Address
         </button>
@@ -325,4 +325,88 @@ onMounted(async () => {
 .modal.show { display: block; }
 .modal-backdrop { position: fixed; top: 0; left: 0; z-index: 1050; width: 100vw; height: 100vh; background-color: #000; opacity: 0.5; }
 .btn-link { font-weight: 600; text-decoration: none; }
+
+.address-book-page {
+  font-family: 'Roboto', sans-serif;
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 🌈 Animated Aurora Gradient Background */
+.address-book-page::before {
+  content: '';
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background-image:
+    radial-gradient(circle at 15% 20%, #5a7dff 10%, transparent 50%),
+    radial-gradient(circle at 80% 80%, #d08bff 10%, transparent 40%),
+    radial-gradient(circle at 50% 40%, #ff8ed1 10%, transparent 40%),
+    linear-gradient(120deg, #0c0a24, #241e4e, #17133d);
+  filter: blur(80px);
+  opacity: 0.9;
+  animation: auroraAnimation 25s ease-in-out infinite;
+  z-index: 0;
+}
+
+@keyframes auroraAnimation {
+  0% { transform: rotate(0deg) translateX(0); }
+  50% { transform: rotate(180deg) translateX(10%); }
+  100% { transform: rotate(360deg) translateX(0); }
+}
+
+/* Keep content above background */
+.container, .fab, .modal {
+  position: relative;
+  z-index: 2;
+}
+
+/* Card and button polish */
+.address-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 1rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+.address-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(13, 110, 253, 0.2);
+}
+.address-card.default-address {
+  border-color: #198754;
+  border-width: 2px;
+}
+
+/* Floating Button (FAB) */
+.fab {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background-color: #0d6efd;
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  z-index: 1000;
+  transition: transform 0.2s ease-in-out;
+}
+.fab:hover {
+  transform: scale(1.1);
+}
+
+
 </style>

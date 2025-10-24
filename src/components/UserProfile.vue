@@ -249,4 +249,52 @@ input:disabled { background-color: #e9ecef; cursor: not-allowed; }
   background-color: #000;
   opacity: 0.5;
 }
+
+.user-profile-page {
+  font-family: 'Roboto', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Aurora-style animated gradient */
+.user-profile-page::before {
+  content: '';
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background-image:
+    radial-gradient(circle at 10% 20%, #6e86ff 10%, transparent 40%),
+    radial-gradient(circle at 80% 90%, #d8b4fe 15%, transparent 50%),
+    radial-gradient(circle at 50% 50%, #f7c2d8 12%, transparent 45%),
+    radial-gradient(circle at 90% 10%, #63a4ff 20%, transparent 60%);
+  filter: blur(100px);
+  animation: moveAurora 20s linear infinite;
+  z-index: 0;
+}
+
+@keyframes moveAurora {
+  0% { transform: rotate(0deg) translate(0, 0); }
+  50% { transform: rotate(180deg) translate(10%, 10%); }
+  100% { transform: rotate(360deg) translate(0, 0); }
+}
+
+/* Keep the card visible above the aurora */
+.profile-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 500px;
+  border-radius: 1rem;
+  background-color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
 </style>
