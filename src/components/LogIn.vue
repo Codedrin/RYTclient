@@ -119,7 +119,7 @@
               </div>
             </div>
 
-            <div class="text-center mt-4">
+            <div class="text-center mt-4 ">
               <p class="text-muted small mb-0">© 2024 RYT-Tyre. All rights reserved.</p>
             </div>
           </div>
