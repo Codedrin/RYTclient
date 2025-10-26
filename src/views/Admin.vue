@@ -592,7 +592,8 @@ async handleBarcodeScanned(scannedCode) {
       return;
     }
 
-    const newQty = Math.max(currentQty - 1, 0);
+const orderQuantity = this.orderToFulfill?.quantity || 1;
+const newQty = Math.max(currentQty - orderQuantity, 0);
 
     const { error: updateError } = await supabase
       .from('stock_in')
