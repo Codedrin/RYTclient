@@ -543,91 +543,79 @@ async handleBarcodeScanned(scannedCode) {
     return;
   }
 
-  let raw = String(scannedCode).trim().replace(/\s+/g, '');
-  const rawUpper = raw.toUpperCase();
+  // 🔍 Normalize barcode (remove spaces and force uppercase)
+  const raw = String(scannedCode).trim().replace(/\s+/g, '');
+  const parts = raw.split('-');
+  const baseCode = parts.length >= 2 ? parts.slice(0, 2).join('-') : raw;
+  console.log('🔎 Scanned:', raw, '| Base:', baseCode);
 
-  if (/^\d+$/.test(rawUpper)) {
-    alert(`⚠️ Invalid barcode format.\nDetected: ${rawUpper}`);
-    return;
-  }
-
-  // ✅ Extract base code
-  let baseCode = rawUpper;
-  const parts = rawUpper.split('-');
-  if (parts.length >= 2) baseCode = parts.slice(0, 2).join('-');
-  console.log('🔎 Scanned raw:', raw, '| Base:', baseCode);
-
-  this.scanStatusMessage = `Scanning: ${raw} — validating...`;
+  this.scanStatusMessage = `Scanning: ${raw} — looking for stock...`;
 
   try {
-    // ✅ Find the stock_in record using barcode
+    // ✅ 1️⃣ Find the corresponding stock_in record
     const { data: stockItem, error: stockErr } = await supabase
       .from('stock_in')
-      .select('barcode_id, product_name, size, quantity')
+      .select('*')
       .ilike('barcode_id', `%${baseCode}%`)
       .maybeSingle();
 
     if (stockErr) throw stockErr;
     if (!stockItem) {
-      alert(`❌ Barcode not found in stock.\n\nScanned: ${raw}`);
+      alert(`❌ No matching stock found for barcode: ${raw}`);
+      this.scanStatusMessage = '❌ Not found in stock.';
       return;
     }
 
-    // ✅ Validate product
-    if (!stockItem.product_name || !stockItem.size) {
-      alert(`⚠️ Incomplete stock data for barcode: ${stockItem.barcode_id}`);
-      return;
-    }
-
+    // ✅ 2️⃣ Get order quantity from current order (order_items)
+    const orderQty = Number(this.orderToFulfill?.quantity) || 1;
     const currentQty = Number(stockItem.quantity) || 0;
 
-    // ✅ Get order quantity from order_items
-    const orderQuantity = Number(this.orderToFulfill?.quantity) || 1;
-
-    if (orderQuantity <= 0) {
-      alert('⚠️ Invalid order quantity.');
+    if (currentQty <= 0) {
+      alert(`⚠️ Stock for ${stockItem.product_name} (${stockItem.size}) is already 0.`);
       return;
     }
 
-    // ✅ Check if stock is enough
-    if (orderQuantity > currentQty) {
+    // ✅ 3️⃣ Make sure there’s enough stock
+    if (orderQty > currentQty) {
       alert(
-        `⚠️ Not enough stock to fulfill order!\n\n` +
-        `Product: ${stockItem.product_name}\nSize: ${stockItem.size}\n` +
-        `Current Stock: ${currentQty}\nOrder Quantity: ${orderQuantity}`
+        `⚠️ Not enough stock!\n` +
+        `Available: ${currentQty}\n` +
+        `Ordered: ${orderQty}`
       );
       return;
     }
 
-    // ✅ Deduct based on order quantity
-    const newQty = currentQty - orderQuantity;
+    // ✅ 4️⃣ Deduct full order quantity (only once per scan)
+    const newQty = currentQty - orderQty;
 
-    const { error: updateError } = await supabase
+    const { error: updateErr } = await supabase
       .from('stock_in')
       .update({ quantity: newQty })
       .eq('barcode_id', stockItem.barcode_id);
 
-    if (updateError) throw updateError;
+    if (updateErr) throw updateErr;
 
-    // ✅ Update the UI instantly
+    // ✅ 5️⃣ Update frontend state
     this.stockInHistory = this.stockInHistory.map(row =>
       row.barcode_id === stockItem.barcode_id ? { ...row, quantity: newQty } : row
     );
 
-    // ✅ Mark scanned successfully
+    // ✅ 6️⃣ Stop scanning and show confirmation
     this.stopQuagga();
     this.isProductScanned = true;
-    this.scanStatusMessage = `✅ ${stockItem.product_name} updated. Remaining: ${newQty}`;
+    this.scanStatusMessage = `✅ ${stockItem.product_name} (${orderQty}) deducted. Remaining: ${newQty}`;
 
     alert(
-      `✅ Scanned Successfully!\n\n` +
+      `✅ Successfully deducted stock!\n\n` +
       `Product: ${stockItem.product_name}\n` +
       `Size: ${stockItem.size}\n` +
-      `Deducted: ${orderQuantity}\n` +
-      `Remaining: ${newQty}`
+      `Ordered Quantity: ${orderQty}\n` +
+      `Old Stock: ${currentQty}\n` +
+      `New Stock: ${newQty}`
     );
+
   } catch (err) {
-    console.error('❌ Scan error:', err);
+    console.error('⚠️ Scan Error:', err);
     alert('⚠️ Failed to process scan: ' + (err.message || err));
   }
 },
