@@ -586,21 +586,41 @@ async handleBarcodeScanned(scannedCode) {
     }
 
     // ✅ Step 3: Handle quantity
-    const currentQty = Number(item.quantity) || 0;
-    if (currentQty <= 0) {
-      alert(`⚠️ Out of stock!\n\nProduct: ${item.product_name}\nSize: ${item.size}`);
-      return;
-    }
+    // ✅ Get current quantity
+const currentQty = Number(item.quantity) || 0;
+const orderQuantity = Number(this.orderToFulfill?.quantity) || 1;
 
-const orderQuantity = this.orderToFulfill?.quantity || 1;
-const newQty = Math.max(currentQty - orderQuantity, 0);
+// ⚠️ Safety check
+if (orderQuantity > currentQty) {
+  alert(`⚠️ Not enough stock in record!\nCurrent: ${currentQty}, Ordered: ${orderQuantity}`);
+  return;
+}
 
-    const { error: updateError } = await supabase
-      .from('stock_in')
-      .update({ quantity: newQty })
-      .eq('barcode_id', item.barcode_id);
+// ✅ Compute new stock quantity
+const newQty = currentQty - orderQuantity;
 
-    if (updateError) throw updateError;
+// ✅ Update stock_in table
+const { error: updateError } = await supabase
+  .from('stock_in')
+  .update({ quantity: newQty })
+  .eq('barcode_id', item.barcode_id);
+
+if (updateError) throw updateError;
+
+// ✅ Optionally update UI
+this.stockInHistory = this.stockInHistory.map(row =>
+  row.barcode_id === item.barcode_id ? { ...row, quantity: newQty } : row
+);
+
+// ✅ Stop scanner and confirm
+this.stopQuagga();
+this.isProductScanned = true;
+this.scanStatusMessage = `✅ ${item.product_name} (${orderQuantity}) shipped. Remaining stock: ${newQty}`;
+
+alert(
+  `✅ Scanned Successfully!\n\nProduct: ${item.product_name}\nSize: ${item.size}\nDeducted: ${orderQuantity}\nRemaining: ${newQty}`
+);
+
 
     // ✅ Step 4: Update UI
     this.stockInHistory = this.stockInHistory.map(row =>
