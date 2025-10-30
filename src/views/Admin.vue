@@ -537,11 +537,15 @@ stopQuagga() {
       nextTick(() => this.initQuagga());
     },
 
-async handleBarcodeScanned(scannedCode) {
-  if (!scannedCode) {
-    this.scanStatusMessage = 'No barcode captured.';
-    return;
-  }
+  async handleBarcodeScanned(scannedCode) {
+    if (this.isProductScanned) return; 
+    this.isProductScanned = true;
+
+    if (!scannedCode) {
+      this.scanStatusMessage = 'No barcode captured.';
+      return;
+    }
+
 
   // 🔍 Normalize barcode (remove spaces and force uppercase)
   const raw = String(scannedCode).trim().replace(/\s+/g, '');
@@ -566,8 +570,24 @@ async handleBarcodeScanned(scannedCode) {
       return;
     }
 
-    // ✅ 2️⃣ Get order quantity from current order (order_items)
-    const orderQty = Number(this.orderToFulfill?.quantity) || 1;
+      // ✅ 2️⃣ Get order quantity directly from `order_items` table
+      let orderQty = 1;
+
+      const { data: orderItem, error: orderErr } = await supabase
+        .from('order_items')
+        .select('quantity')
+        .eq('order_id', this.orderToFulfill.order_id)
+        .eq('product_id', this.orderToFulfill.product_id)
+        .single();
+
+      if (orderErr) {
+        console.warn('⚠️ Could not fetch order_items quantity, using fallback.');
+      } else if (orderItem) {
+        orderQty = Number(orderItem.quantity);
+      }
+
+      console.log('Order quantity from order_items:', orderQty);
+
     const currentQty = Number(stockItem.quantity) || 0;
 
     if (currentQty <= 0) {
@@ -612,7 +632,12 @@ async handleBarcodeScanned(scannedCode) {
       `Ordered Quantity: ${orderQty}\n` +
       `Old Stock: ${currentQty}\n` +
       `New Stock: ${newQty}`
+      
     );
+      this.stopQuagga(); 
+      setTimeout(() => {
+        this.isProductScanned = false; 
+      }, 1500);
 
   } catch (err) {
     console.error('⚠️ Scan Error:', err);
