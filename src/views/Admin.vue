@@ -570,23 +570,40 @@ stopQuagga() {
       return;
     }
 
-      // ✅ 2️⃣ Get order quantity directly from `order_items` table
+      // ✅ 2️⃣ Get order quantity by matching order_id + product_name → product_id
       let orderQty = 1;
 
-      const { data: orderItem, error: orderErr } = await supabase
-        .from('order_items')
-        .select('quantity')
-        .eq('order_id', this.orderToFulfill.order_id)
-        .eq('product_id', this.orderToFulfill.product_id)
-        .single();
+      try {
 
-      if (orderErr) {
-        console.warn('⚠️ Could not fetch order_items quantity, using fallback.');
-      } else if (orderItem) {
-        orderQty = Number(orderItem.quantity);
+        const { data: productMatch, error: productErr } = await supabase
+          .from('products')
+          .select('id')
+          .ilike('brand', this.orderToFulfill.product_name)
+          .single();
+
+        if (productErr || !productMatch) {
+          console.warn('⚠️ Could not find product match by name.');
+        } else {
+          // 2️⃣ Use product_id + order_id to get quantity
+          const { data: orderItem, error: orderErr } = await supabase
+            .from('order_items')
+            .select('quantity')
+            .eq('order_id', this.orderToFulfill.order_id)
+            .eq('product_id', productMatch.id)
+            .single();
+
+          if (orderErr) {
+            console.warn('⚠️ Could not fetch order_items quantity.');
+          } else if (orderItem) {
+            orderQty = Number(orderItem.quantity);
+          }
+        }
+
+        console.log('✅ Final orderQty:', orderQty);
+      } catch (err) {
+        console.error('Error fetching order quantity:', err);
       }
 
-      console.log('Order quantity from order_items:', orderQty);
 
     const currentQty = Number(stockItem.quantity) || 0;
 
